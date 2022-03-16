@@ -22,10 +22,13 @@ namespace Service.PaymentProviderBridge.Test2.Services
 		public ValueTask<ProviderDepositGrpcResponse> DepositAsync(ProviderDepositGrpcRequest request)
 		{
 			SettingsModel settings = Program.Settings;
+			var transactionId = request.TransactionId.ToString();
 
-			string externalUrl = SetTransactionId(settings.ServiceUrl, request.TransactionId);
+			string SetTransactionId(string urlTemplate) => urlTemplate.Replace("#transaction-id#", transactionId);
 
+			string externalUrl = SetTransactionId(settings.ServiceUrl);
 			DepositRegisterResponse registerResponse;
+
 			using (HttpResponseMessage response = Client.GetAsync(externalUrl).Result)
 				using (HttpContent content = response.Content)
 					registerResponse = JsonConvert.DeserializeObject<DepositRegisterResponse>(content.ReadAsStringAsync().Result);
@@ -48,7 +51,7 @@ namespace Service.PaymentProviderBridge.Test2.Services
 			{
 				State = state,
 				ExternalId = registerResponse.ExternalId,
-				RedirectUrl = state == TransactionState.Approved ? settings.OkUrl : settings.FailUrl
+				RedirectUrl = SetTransactionId(state == TransactionState.Approved ? settings.OkUrl : settings.FailUrl)
 			});
 		}
 
@@ -58,7 +61,5 @@ namespace Service.PaymentProviderBridge.Test2.Services
 				"reject" => TransactionState.Rejected,
 				"approve" => TransactionState.Approved, 
 				_ => TransactionState.Error};
-
-		private static string SetTransactionId(string urlTemplate, Guid? id) => urlTemplate.Replace("#transaction-id#", id.ToString(), StringComparison.OrdinalIgnoreCase);
 	}
 }
